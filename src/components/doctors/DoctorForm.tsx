@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Save, User, Stethoscope, FileText, Mail, Phone, Calendar, Plus, Trash2 } from 'lucide-react';
+import { X, Save, User, Stethoscope, FileText, Mail, Phone, Calendar, Plus, Trash2, DollarSign } from 'lucide-react';
 import { Doctor, Schedule } from '../../types';
 
 interface DoctorFormProps {

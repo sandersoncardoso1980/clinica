@@ -91,6 +91,18 @@ export const DoctorManagement: React.FC<DoctorManagementProps> = ({
                   <p className="text-blue-600 font-medium">{doctor.speciality}</p>
                   <p className="text-sm text-gray-600 mt-1">{doctor.crm}</p>
                 </div>
+                <div className="text-right">
+                  <div className="text-sm text-gray-500">
+                    Horários disponíveis
+                  </div>
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {doctor.doctor_schedules?.map((sched: any, idx: number) => (
+                      <span key={idx} className="bg-gray-100 text-gray-700 px-2 py-1 rounded text-xs">
+                        {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab'][sched.day_of_week]}
+                      </span>
+                    ))}
+                  </div>
+                </div>
                 
                 <div className="flex items-center space-x-2">
                   <button
@@ -127,15 +139,15 @@ export const DoctorManagement: React.FC<DoctorManagementProps> = ({
                     <span className="font-medium">Horários de Atendimento:</span>
                   </div>
                   <div className="text-sm text-gray-600 ml-6">
-                    {doctor.schedule.length > 0 ? (
+                    {doctor.doctor_schedules?.length > 0 ? (
                       <div className="space-y-1">
-                        {doctor.schedule.map((sched, idx) => {
+                        {doctor.doctor_schedules.map((sched: any, idx: number) => {
                           const days = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
                           return (
                             <div key={idx} className="flex items-center space-x-2">
                               <Clock className="w-3 h-3 text-gray-400" />
                               <span>
-                                {days[sched.dayOfWeek]}: {sched.startTime} às {sched.endTime}
+                                {days[sched.day_of_week]}: {sched.start_time} às {sched.end_time}
                               </span>
                             </div>
                           );
@@ -151,7 +163,7 @@ export const DoctorManagement: React.FC<DoctorManagementProps> = ({
               <div className="mt-4 pt-3 border-t border-gray-100">
                 <div className="flex items-center justify-between text-xs text-gray-500">
                   <span>Status: Ativo</span>
-                  <span>Cadastrado em Jan 2025</span>
+                  <span>Cadastrado em {new Date(doctor.created_at).toLocaleDateString('pt-BR')}</span>
                 </div>
               </div>
             </div>
