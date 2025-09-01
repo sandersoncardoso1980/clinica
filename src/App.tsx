@@ -10,21 +10,49 @@ import { PatientList } from './components/patients/PatientList';
 import { PatientScheduling } from './components/appointments/PatientScheduling';
 import { DoctorManagement } from './components/doctors/DoctorManagement';
 import { DoctorForm } from './components/doctors/DoctorForm';
-import { useMockData } from './hooks/useMockData';
+import { useSupabaseData } from './hooks/useSupabaseData';
 
 const Dashboard: React.FC = () => {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [activeSection, setActiveSection] = useState('dashboard');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [showDoctorForm, setShowDoctorForm] = useState(false);
   const [editingDoctor, setEditingDoctor] = useState<any>(null);
-  const { patients, doctors, appointments, dashboardStats } = useMockData();
+  const { 
+    loading, 
+    patients, 
+    doctors, 
+    appointments, 
+    dashboardStats,
+    createAppointment,
+    getAvailableTimeSlots,
+    saveDoctor,
+    deleteDoctor
+  } = useSupabaseData();
 
-  const handleScheduleAppointment = async (appointmentData: any) => {
-    // Mock implementation - in real app, this would call an API
-    console.log('Agendamento criado:', appointmentData);
-    return Promise.resolve();
-  };
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Carregando...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) return <LoginForm />;
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Carregando dados...</p>
+        </div>
+      </div>
+    );
+  }
 
   const handleNewDoctor = () => {
     setEditingDoctor(null);
@@ -36,21 +64,25 @@ const Dashboard: React.FC = () => {
     setShowDoctorForm(true);
   };
 
-  const handleSaveDoctor = (doctorData: any) => {
-    // Mock implementation - in real app, this would call an API
-    console.log('Médico salvo:', doctorData);
-    setShowDoctorForm(false);
-    setEditingDoctor(null);
-  };
-
-  const handleDeleteDoctor = (doctorId: string) => {
-    if (confirm('Tem certeza que deseja remover este médico?')) {
-      // Mock implementation - in real app, this would call an API
-      console.log('Médico removido:', doctorId);
+  const handleSaveDoctor = async (doctorData: any) => {
+    try {
+      await saveDoctor(doctorData);
+      setShowDoctorForm(false);
+      setEditingDoctor(null);
+    } catch (error) {
+      alert('Erro ao salvar médico: ' + (error as Error).message);
     }
   };
 
-  if (!user) return <LoginForm />;
+  const handleDeleteDoctor = async (doctorId: string) => {
+    if (confirm('Tem certeza que deseja remover este médico?')) {
+      try {
+        await deleteDoctor(doctorId);
+      } catch (error) {
+        alert('Erro ao remover médico: ' + (error as Error).message);
+      }
+    }
+  };
 
   const renderContent = () => {
     switch (activeSection) {
@@ -135,7 +167,8 @@ const Dashboard: React.FC = () => {
             </div>
             <PatientScheduling 
               doctors={doctors}
-              onScheduleAppointment={handleScheduleAppointment}
+              onScheduleAppointment={createAppointment}
+              getAvailableTimeSlots={getAvailableTimeSlots}
             />
           </div>
         );

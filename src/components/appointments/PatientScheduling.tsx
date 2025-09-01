@@ -5,6 +5,7 @@ import { Doctor, Appointment } from '../../types';
 interface PatientSchedulingProps {
   doctors: Doctor[];
   onScheduleAppointment: (appointmentData: any) => void;
+  getAvailableTimeSlots: (doctorId: string, date: string) => Promise<string[]>;
 }
 
 const specialties = [
@@ -28,7 +29,8 @@ const appointmentTypes = [
 
 export const PatientScheduling: React.FC<PatientSchedulingProps> = ({ 
   doctors, 
-  onScheduleAppointment 
+  onScheduleAppointment,
+  getAvailableTimeSlots
 }) => {
   const [selectedSpecialty, setSelectedSpecialty] = useState('');
   const [selectedDoctor, setSelectedDoctor] = useState('');
@@ -39,6 +41,8 @@ export const PatientScheduling: React.FC<PatientSchedulingProps> = ({
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [availableSlots, setAvailableSlots] = useState<string[]>([]);
+  const [loadingSlots, setLoadingSlots] = useState(false);
 
   const filteredDoctors = selectedSpecialty 
     ? doctors.filter(doctor => doctor.speciality === selectedSpecialty)
@@ -57,7 +61,7 @@ export const PatientScheduling: React.FC<PatientSchedulingProps> = ({
       date.setDate(today.getDate() + i);
       
       const dayOfWeek = date.getDay();
-      const hasSchedule = selectedDoctorData.schedule.some(s => s.dayOfWeek === dayOfWeek);
+      const hasSchedule = selectedDoctorData.doctor_schedules?.some((s: any) => s.day_of_week === dayOfWeek);
       
       if (hasSchedule) {
         dates.push(date.toISOString().split('T')[0]);
@@ -67,28 +71,28 @@ export const PatientScheduling: React.FC<PatientSchedulingProps> = ({
     return dates;
   };
 
-  const getAvailableTimes = () => {
-    if (!selectedDoctorData || !selectedDate) return [];
+  const loadAvailableSlots = async (date: string) => {
+    if (!selectedDoctor || !date) return;
     
-    const date = new Date(selectedDate);
-    const dayOfWeek = date.getDay();
-    
-    const schedule = selectedDoctorData.schedule.find(s => s.dayOfWeek === dayOfWeek);
-    if (!schedule) return [];
-    
-    const times = [];
-    const start = parseInt(schedule.startTime.split(':')[0]);
-    const end = parseInt(schedule.endTime.split(':')[0]);
-    
-    for (let hour = start; hour < end; hour++) {
-      times.push(`${hour.toString().padStart(2, '0')}:00`);
-      if (hour + 0.5 < end) {
-        times.push(`${hour.toString().padStart(2, '0')}:30`);
+    setLoadingSlots(true);
+    try {
+      const slots = await getAvailableTimeSlots(selectedDoctor, date);
+      setAvailableSlots(slots);
+    } catch (error) {
+      console.error('Error loading available slots:', error);
+      setAvailableSlots([]);
+    } finally {
+      setLoadingSlots(false);
+    }
+  };
+
+  // Load slots when date is selected
+  React.useEffect(() => {
+    if (selectedDate && selectedDoctor) {
+      loadAvailableSlots(selectedDate);
       }
     }
-    
-    return times;
-  };
+  }, [selectedDate, selectedDoctor]);
 
   const handleSubmit = async () => {
     setIsSubmitting(true);
@@ -311,6 +315,7 @@ export const PatientScheduling: React.FC<PatientSchedulingProps> = ({
                       key={date}
                       onClick={() => {
                         setSelectedDate(date);
+                        setSelectedTime('');
                         setStep(4);
                       }}
                       className={`p-3 border-2 rounded-lg transition-all text-center ${
@@ -353,8 +358,133 @@ export const PatientScheduling: React.FC<PatientSchedulingProps> = ({
                 </button>
               </div>
 
+              {loadingSlots ? (
+                <div className="text-center py-8">
+                  <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+                  <p className="text-gray-600">Carregando horários...</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                  {availableSlots.map((time) => (
+                    <button
+                      key={time}
+                      onClick={() => {
+                        setSelectedTime(time);
+                        setStep(5);
+                      }}
+                      className="p-3 border-2 border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-all text-center"
+                    >
+                      <Clock className="w-4 h-4 mx-auto mb-1 text-gray-600" />
+                      <div className="text-sm font-medium text-gray-900">{time}</div>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {!loadingSlots && availableSlots.length === 0 && (
+                <div className="text-center py-8">
+                  <Clock className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">
+                    Nenhum horário disponível
+                  </h3>
+                  <p className="text-gray-500">
+                    Escolha outra data ou médico
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Step 4: Time Selection - Old implementation removed */}
+          {false && step === 4 && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <span className="text-sm text-gray-600">Data selecionada:</span>
+                  <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-sm font-medium">
+                    {new Date(selectedDate).toLocaleDateString('pt-BR')}
+                  </span>
+                </div>
+                <button
+                  onClick={() => setStep(3)}
+                  className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                >
+                  Alterar data
+                </button>
+              </div>
+
               <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
-                {getAvailableTimes().map((time) => (
+                {/* Old time selection logic */}
+              </div>
+            </div>
+          )}
+
+          {/* Step 5 continues as before... */}
+          {step === 5 && (
+            <div className="space-y-6">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <h3 className="font-semibold text-blue-900 mb-3">Resumo do Agendamento</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="text-blue-700 font-medium">Especialidade:</span>
+                    <p className="text-blue-900">{selectedSpecialty}</p>
+                  </div>
+                  <div>
+                    <span className="text-blue-700 font-medium">Médico:</span>
+                    <p className="text-blue-900">{selectedDoctorData?.full_name}</p>
+                  </div>
+                  <div>
+                    <span className="text-blue-700 font-medium">Data:</span>
+                    <p className="text-blue-900">{new Date(selectedDate).toLocaleDateString('pt-BR')}</p>
+                  </div>
+                  <div>
+                    <span className="text-blue-700 font-medium">Horário:</span>
+                    <p className="text-blue-900">{selectedTime}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Tipo de Consulta
+                </label>
+                <select
+                  value={appointmentType}
+                  onChange={(e) => setAppointmentType(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  {appointmentTypes.map((type) => (
+                    <option key={type.value} value={type.value}>
+                      {type.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Observações (Opcional)
+                </label>
+                <textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  maxLength={200}
+                  placeholder="Descreva brevemente o motivo da consulta ou sintomas..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                  rows={3}
+                />
+                <div className="text-right text-xs text-gray-500 mt-1">
+                  {notes.length}/200 caracteres
+                </div>
+              </div>
+
+              <div className="flex space-x-4">
+                <button
+                  onClick={() => setStep(4)}
+                  className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Voltar
+                </button>
                   <button
                     key={time}
                     onClick={() => {
@@ -434,14 +564,10 @@ export const PatientScheduling: React.FC<PatientSchedulingProps> = ({
                 <button
                   onClick={() => setStep(4)}
                   className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  Voltar
-                </button>
-                <button
                   onClick={handleSubmit}
                   disabled={isSubmitting}
                   className="flex-1 bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
+                  className="flex-1 bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   {isSubmitting ? 'Agendando...' : 'Confirmar Agendamento'}
                 </button>
               </div>
